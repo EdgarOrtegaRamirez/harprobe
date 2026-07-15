@@ -1,3 +1,4 @@
+#![allow(clippy::useless_format, clippy::single_char_add_str, clippy::unnecessary_sort_by)]
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
