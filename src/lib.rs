@@ -1,6 +1,10 @@
-#![allow(clippy::useless_format, clippy::single_char_add_str, clippy::unnecessary_sort_by)]
-use std::collections::HashMap;
+#![allow(
+    clippy::useless_format,
+    clippy::single_char_add_str,
+    clippy::unnecessary_sort_by
+)]
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Top-level HAR file structure (HAR 1.2 spec)
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -42,7 +46,11 @@ pub struct Page {
     pub started_date_time: String,
     pub id: String,
     pub title: String,
-    #[serde(rename = "pageTimings", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "pageTimings",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub page_timings: Option<PageTimings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
@@ -50,7 +58,11 @@ pub struct Page {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PageTimings {
-    #[serde(rename = "onContentLoad", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "onContentLoad",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub on_content_load: Option<f64>,
     #[serde(rename = "onLoad", default, skip_serializing_if = "Option::is_none")]
     pub on_load: Option<f64>,
@@ -154,8 +166,7 @@ pub struct Cookie {
     pub comment: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[derive(Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Content {
     #[serde(default)]
     pub size: i64,
@@ -196,9 +207,17 @@ pub struct Param {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Cache {
-    #[serde(rename = "beforeRequest", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "beforeRequest",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub before_request: Option<CacheEntry>,
-    #[serde(rename = "afterRequest", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "afterRequest",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub after_request: Option<CacheEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
@@ -326,7 +345,14 @@ pub fn analyze(har: &HarFile) -> HarStats {
         *status_codes.entry(entry.response.status).or_insert(0) += 1;
 
         // Content types
-        let mime = entry.response.content.mime_type.split(';').next().unwrap_or("unknown").to_string();
+        let mime = entry
+            .response
+            .content
+            .mime_type
+            .split(';')
+            .next()
+            .unwrap_or("unknown")
+            .to_string();
         *content_types.entry(mime.clone()).or_insert(0) += 1;
 
         // Methods
@@ -340,7 +366,9 @@ pub fn analyze(har: &HarFile) -> HarStats {
         }
 
         // Timing
-        let entry_time = entry.timings.wait + entry.timings.receive + entry.timings.send
+        let entry_time = entry.timings.wait
+            + entry.timings.receive
+            + entry.timings.send
             + entry.timings.dns.unwrap_or(0.0)
             + entry.timings.connect.unwrap_or(0.0)
             + entry.timings.blocked.unwrap_or(0.0)
@@ -357,7 +385,10 @@ pub fn analyze(har: &HarFile) -> HarStats {
         // Domain stats
         if let Some(domain) = extract_domain(&entry.request.url) {
             let ds = domain_map.entry(domain).or_insert(DomainStats {
-                requests: 0, total_time_ms: 0.0, total_size: 0, errors: 0,
+                requests: 0,
+                total_time_ms: 0.0,
+                total_size: 0,
+                errors: 0,
             });
             ds.requests += 1;
             ds.total_time_ms += entry_time;
@@ -379,21 +410,33 @@ pub fn analyze(har: &HarFile) -> HarStats {
     }
 
     // Sort slowest
-    slowest.sort_by(|a, b| b.total_time_ms.partial_cmp(&a.total_time_ms).unwrap_or(std::cmp::Ordering::Equal));
+    slowest.sort_by(|a, b| {
+        b.total_time_ms
+            .partial_cmp(&a.total_time_ms)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Page load times
-    let page_loads: Vec<PageLoadSummary> = har.log.pages.iter().map(|page| {
-        let entry_count = har.log.entries.iter().filter(|e| {
-            e.pageref.as_deref() == Some(&page.id)
-        }).count();
-        PageLoadSummary {
-            page_id: page.id.clone(),
-            title: page.title.clone(),
-            on_content_load: page.page_timings.as_ref().and_then(|t| t.on_content_load),
-            on_load: page.page_timings.as_ref().and_then(|t| t.on_load),
-            entries: entry_count,
-        }
-    }).collect();
+    let page_loads: Vec<PageLoadSummary> = har
+        .log
+        .pages
+        .iter()
+        .map(|page| {
+            let entry_count = har
+                .log
+                .entries
+                .iter()
+                .filter(|e| e.pageref.as_deref() == Some(&page.id))
+                .count();
+            PageLoadSummary {
+                page_id: page.id.clone(),
+                title: page.title.clone(),
+                on_content_load: page.page_timings.as_ref().and_then(|t| t.on_content_load),
+                on_load: page.page_timings.as_ref().and_then(|t| t.on_load),
+                entries: entry_count,
+            }
+        })
+        .collect();
 
     HarStats {
         total_entries: har.log.entries.len(),
@@ -416,10 +459,16 @@ pub fn analyze(har: &HarFile) -> HarStats {
 /// Diff two HAR files
 pub fn diff_har(before: &HarFile, after: &HarFile) -> HarDiff {
     // Build a key-based lookup for each entry (URL + method)
-    let before_map: HashMap<(&str, &str), &Entry> = before.log.entries.iter()
+    let before_map: HashMap<(&str, &str), &Entry> = before
+        .log
+        .entries
+        .iter()
         .map(|e| ((e.request.url.as_str(), e.request.method.as_str()), e))
         .collect();
-    let after_map: HashMap<(&str, &str), &Entry> = after.log.entries.iter()
+    let after_map: HashMap<(&str, &str), &Entry> = after
+        .log
+        .entries
+        .iter()
         .map(|e| ((e.request.url.as_str(), e.request.method.as_str()), e))
         .collect();
 
@@ -438,20 +487,32 @@ pub fn diff_har(before: &HarFile, after: &HarFile) -> HarDiff {
                 let before_time = before_entry.timings.wait + before_entry.timings.receive;
                 let after_time = entry.timings.wait + entry.timings.receive;
                 total_time_change += after_time - before_time;
-                let before_size = before_entry.response.body_size.max(0) + before_entry.response.headers_size.max(0);
-                let after_size = entry.response.body_size.max(0) + entry.response.headers_size.max(0);
+                let before_size = before_entry.response.body_size.max(0)
+                    + before_entry.response.headers_size.max(0);
+                let after_size =
+                    entry.response.body_size.max(0) + entry.response.headers_size.max(0);
                 total_size_change += after_size - before_size;
             }
             None => {
-                let entry_time = entry.timings.wait + entry.timings.receive + entry.timings.send
-                    + entry.timings.dns.unwrap_or(0.0) + entry.timings.connect.unwrap_or(0.0);
+                let entry_time = entry.timings.wait
+                    + entry.timings.receive
+                    + entry.timings.send
+                    + entry.timings.dns.unwrap_or(0.0)
+                    + entry.timings.connect.unwrap_or(0.0);
                 added.push(EntrySummary {
                     url: entry.request.url.clone(),
                     method: entry.request.method.clone(),
                     status: entry.response.status,
                     total_time_ms: entry_time,
                     size: entry.response.body_size.max(0) + entry.response.headers_size.max(0),
-                    mime_type: entry.response.content.mime_type.split(';').next().unwrap_or("unknown").to_string(),
+                    mime_type: entry
+                        .response
+                        .content
+                        .mime_type
+                        .split(';')
+                        .next()
+                        .unwrap_or("unknown")
+                        .to_string(),
                 });
             }
         }
@@ -461,26 +522,52 @@ pub fn diff_har(before: &HarFile, after: &HarFile) -> HarDiff {
     for entry in &before.log.entries {
         let key = (entry.request.url.as_str(), entry.request.method.as_str());
         if !after_map.contains_key(&key) {
-            let entry_time = entry.timings.wait + entry.timings.receive + entry.timings.send
-                + entry.timings.dns.unwrap_or(0.0) + entry.timings.connect.unwrap_or(0.0);
+            let entry_time = entry.timings.wait
+                + entry.timings.receive
+                + entry.timings.send
+                + entry.timings.dns.unwrap_or(0.0)
+                + entry.timings.connect.unwrap_or(0.0);
             removed.push(EntrySummary {
                 url: entry.request.url.clone(),
                 method: entry.request.method.clone(),
                 status: entry.response.status,
                 total_time_ms: entry_time,
                 size: entry.response.body_size.max(0) + entry.response.headers_size.max(0),
-                mime_type: entry.response.content.mime_type.split(';').next().unwrap_or("unknown").to_string(),
+                mime_type: entry
+                    .response
+                    .content
+                    .mime_type
+                    .split(';')
+                    .next()
+                    .unwrap_or("unknown")
+                    .to_string(),
             });
         }
     }
 
     // Status code changes
     let mut sc_changes: HashMap<i64, (usize, usize)> = HashMap::new();
-    let before_sc: HashMap<i64, usize> = before.log.entries.iter()
-        .fold(HashMap::new(), |mut acc, e| { *acc.entry(e.response.status).or_insert(0) += 1; acc });
-    let after_sc: HashMap<i64, usize> = after.log.entries.iter()
-        .fold(HashMap::new(), |mut acc, e| { *acc.entry(e.response.status).or_insert(0) += 1; acc });
-    let all_codes: Vec<i64> = before_sc.keys().chain(after_sc.keys()).copied().collect::<std::collections::HashSet<_>>().into_iter().collect();
+    let before_sc: HashMap<i64, usize> =
+        before
+            .log
+            .entries
+            .iter()
+            .fold(HashMap::new(), |mut acc, e| {
+                *acc.entry(e.response.status).or_insert(0) += 1;
+                acc
+            });
+    let after_sc: HashMap<i64, usize> =
+        after.log.entries.iter().fold(HashMap::new(), |mut acc, e| {
+            *acc.entry(e.response.status).or_insert(0) += 1;
+            acc
+        });
+    let all_codes: Vec<i64> = before_sc
+        .keys()
+        .chain(after_sc.keys())
+        .copied()
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
     for code in all_codes {
         let b = before_sc.get(&code).copied().unwrap_or(0);
         let a = after_sc.get(&code).copied().unwrap_or(0);
@@ -501,52 +588,87 @@ pub fn diff_har(before: &HarFile, after: &HarFile) -> HarDiff {
 }
 
 /// Filter entries by various criteria
-pub fn filter_entries<'a>(entries: &'a [Entry], status_min: Option<i64>, status_max: Option<i64>,
-    url_pattern: Option<&str>, mime_filter: Option<&str>, min_time: Option<f64>, max_time: Option<f64>) -> Vec<&'a Entry> {
-    entries.iter().filter(|e| {
-        let mut pass = true;
-        if let Some(smin) = status_min {
-            if e.response.status < smin { pass = false; }
-        }
-        if let Some(smax) = status_max {
-            if e.response.status > smax { pass = false; }
-        }
-        if let Some(pattern) = url_pattern {
-            if !e.request.url.contains(pattern) { pass = false; }
-        }
-        if let Some(mime) = mime_filter {
-            if !e.response.content.mime_type.contains(mime) { pass = false; }
-        }
-        if let Some(tmin) = min_time {
-            let entry_time = e.timings.wait + e.timings.receive;
-            if entry_time < tmin { pass = false; }
-        }
-        if let Some(tmax) = max_time {
-            let entry_time = e.timings.wait + e.timings.receive;
-            if entry_time > tmax { pass = false; }
-        }
-        pass
-    }).collect()
+pub fn filter_entries<'a>(
+    entries: &'a [Entry],
+    status_min: Option<i64>,
+    status_max: Option<i64>,
+    url_pattern: Option<&str>,
+    mime_filter: Option<&str>,
+    min_time: Option<f64>,
+    max_time: Option<f64>,
+) -> Vec<&'a Entry> {
+    entries
+        .iter()
+        .filter(|e| {
+            let mut pass = true;
+            if let Some(smin) = status_min {
+                if e.response.status < smin {
+                    pass = false;
+                }
+            }
+            if let Some(smax) = status_max {
+                if e.response.status > smax {
+                    pass = false;
+                }
+            }
+            if let Some(pattern) = url_pattern {
+                if !e.request.url.contains(pattern) {
+                    pass = false;
+                }
+            }
+            if let Some(mime) = mime_filter {
+                if !e.response.content.mime_type.contains(mime) {
+                    pass = false;
+                }
+            }
+            if let Some(tmin) = min_time {
+                let entry_time = e.timings.wait + e.timings.receive;
+                if entry_time < tmin {
+                    pass = false;
+                }
+            }
+            if let Some(tmax) = max_time {
+                let entry_time = e.timings.wait + e.timings.receive;
+                if entry_time > tmax {
+                    pass = false;
+                }
+            }
+            pass
+        })
+        .collect()
 }
 
 /// Check CI/CD thresholds
-pub fn check_thresholds(stats: &HarStats, max_total_time: Option<f64>, max_requests: Option<usize>,
-    max_errors: Option<usize>, max_total_size: Option<i64>) -> Vec<String> {
+pub fn check_thresholds(
+    stats: &HarStats,
+    max_total_time: Option<f64>,
+    max_requests: Option<usize>,
+    max_errors: Option<usize>,
+    max_total_size: Option<i64>,
+) -> Vec<String> {
     let mut violations = Vec::new();
 
     if let Some(mtt) = max_total_time {
         let total_ms = stats.total_time_ms;
         if total_ms > mtt {
-            violations.push(format!("Total time {:.0}ms exceeds threshold {:.0}ms", total_ms, mtt));
+            violations.push(format!(
+                "Total time {:.0}ms exceeds threshold {:.0}ms",
+                total_ms, mtt
+            ));
         }
     }
     if let Some(mr) = max_requests {
         if stats.total_entries > mr {
-            violations.push(format!("Request count {} exceeds threshold {}", stats.total_entries, mr));
+            violations.push(format!(
+                "Request count {} exceeds threshold {}",
+                stats.total_entries, mr
+            ));
         }
     }
     if let Some(me) = max_errors {
-        let errors: usize = stats.status_code_distribution.iter()
+        let errors: usize = stats
+            .status_code_distribution
+            .iter()
             .filter(|(k, _)| **k >= 400)
             .map(|(_, v)| v)
             .sum();
@@ -556,7 +678,10 @@ pub fn check_thresholds(stats: &HarStats, max_total_time: Option<f64>, max_reque
     }
     if let Some(mts) = max_total_size {
         if stats.total_transfer_size > mts {
-            violations.push(format!("Transfer size {} bytes exceeds threshold {} bytes", stats.total_transfer_size, mts));
+            violations.push(format!(
+                "Transfer size {} bytes exceeds threshold {} bytes",
+                stats.total_transfer_size, mts
+            ));
         }
     }
 
@@ -571,7 +696,10 @@ pub fn format_text_report(stats: &HarStats, har: &HarFile) -> String {
     out.push_str(&format!("║         HAR Analysis Report          ║\n"));
     out.push_str(&format!("╚══════════════════════════════════════╝\n\n"));
 
-    out.push_str(&format!("Creator: {} v{}\n", har.log.creator.name, har.log.creator.version));
+    out.push_str(&format!(
+        "Creator: {} v{}\n",
+        har.log.creator.name, har.log.creator.version
+    ));
     if let Some(ref browser) = har.log.browser {
         out.push_str(&format!("Browser: {} v{}\n", browser.name, browser.version));
     }
@@ -581,10 +709,25 @@ pub fn format_text_report(stats: &HarStats, har: &HarFile) -> String {
     out.push_str(&format!("───────────\n"));
     out.push_str(&format!("  Total requests:     {}\n", stats.total_entries));
     out.push_str(&format!("  Total pages:        {}\n", stats.total_pages));
-    out.push_str(&format!("  Total transfer:     {} bytes ({} KB)\n", stats.total_transfer_size, stats.total_transfer_size / 1024));
-    out.push_str(&format!("  Total body size:    {} bytes ({} KB)\n", stats.total_body_size, stats.total_body_size / 1024));
-    out.push_str(&format!("  Total headers size: {} bytes ({} KB)\n", stats.total_headers_size, stats.total_headers_size / 1024));
-    out.push_str(&format!("  Total time:         {:.0} ms\n\n", stats.total_time_ms));
+    out.push_str(&format!(
+        "  Total transfer:     {} bytes ({} KB)\n",
+        stats.total_transfer_size,
+        stats.total_transfer_size / 1024
+    ));
+    out.push_str(&format!(
+        "  Total body size:    {} bytes ({} KB)\n",
+        stats.total_body_size,
+        stats.total_body_size / 1024
+    ));
+    out.push_str(&format!(
+        "  Total headers size: {} bytes ({} KB)\n",
+        stats.total_headers_size,
+        stats.total_headers_size / 1024
+    ));
+    out.push_str(&format!(
+        "  Total time:         {:.0} ms\n\n",
+        stats.total_time_ms
+    ));
 
     out.push_str(&format!("📊 STATUS CODE DISTRIBUTION\n"));
     out.push_str(&format!("────────────────────────────\n"));
@@ -593,8 +736,17 @@ pub fn format_text_report(stats: &HarStats, har: &HarFile) -> String {
     for (code, count) in &codes {
         let pct = (**count as f64 / stats.total_entries as f64) * 100.0;
         let bar = "█".repeat((pct / 2.0) as usize);
-        let _color = if **code >= 400 { "✗" } else if **code >= 300 { "→" } else { "✓" };
-        out.push_str(&format!("  {:>3} {:>4} ({:>5.1}%) {}\n", code, count, bar, pct));
+        let _color = if **code >= 400 {
+            "✗"
+        } else if **code >= 300 {
+            "→"
+        } else {
+            "✓"
+        };
+        out.push_str(&format!(
+            "  {:>3} {:>4} ({:>5.1}%) {}\n",
+            code, count, bar, pct
+        ));
     }
     out.push_str("\n");
 
@@ -623,7 +775,8 @@ pub fn format_text_report(stats: &HarStats, har: &HarFile) -> String {
     out.push_str(&format!("  Cache hits:  {}\n", stats.cache_hits));
     out.push_str(&format!("  Cache misses: {}\n", stats.cache_misses));
     if stats.cache_hits + stats.cache_misses > 0 {
-        let hit_pct = (stats.cache_hits as f64 / (stats.cache_hits + stats.cache_misses) as f64) * 100.0;
+        let hit_pct =
+            (stats.cache_hits as f64 / (stats.cache_hits + stats.cache_misses) as f64) * 100.0;
         out.push_str(&format!("  Hit rate:    {:.1}%\n", hit_pct));
     }
     out.push_str("\n");
@@ -632,15 +785,32 @@ pub fn format_text_report(stats: &HarStats, har: &HarFile) -> String {
         out.push_str(&format!("🐌 SLOWEST REQUESTS (top 10)\n"));
         out.push_str(&format!("────────────────────────────\n"));
         for (i, entry) in stats.slowest_entries.iter().take(10).enumerate() {
-            let status_color = if entry.status >= 400 { "✗" } else if entry.status >= 300 { "→" } else { "✓" };
+            let status_color = if entry.status >= 400 {
+                "✗"
+            } else if entry.status >= 300 {
+                "→"
+            } else {
+                "✓"
+            };
             let url_short = if entry.url.len() > 80 {
-                format!("{}...{}", &entry.url[..60], &entry.url[entry.url.len()-20..])
+                format!(
+                    "{}...{}",
+                    &entry.url[..60],
+                    &entry.url[entry.url.len() - 20..]
+                )
             } else {
                 entry.url.clone()
             };
-            out.push_str(&format!("  {:>2}. {} {:>3} {:>8.0}ms {:>8} {} {}\n",
-                i + 1, status_color, entry.status, entry.total_time_ms,
-                format_size(entry.size), entry.method, url_short));
+            out.push_str(&format!(
+                "  {:>2}. {} {:>3} {:>8.0}ms {:>8} {} {}\n",
+                i + 1,
+                status_color,
+                entry.status,
+                entry.total_time_ms,
+                format_size(entry.size),
+                entry.method,
+                url_short
+            ));
         }
         out.push_str("\n");
     }
@@ -651,10 +821,19 @@ pub fn format_text_report(stats: &HarStats, har: &HarFile) -> String {
         let mut domains: Vec<_> = stats.per_domain_stats.iter().collect();
         domains.sort_by(|a, b| b.1.requests.cmp(&a.1.requests));
         for (domain, ds) in &domains {
-            let avg_time = if ds.requests > 0 { ds.total_time_ms / ds.requests as f64 } else { 0.0 };
+            let avg_time = if ds.requests > 0 {
+                ds.total_time_ms / ds.requests as f64
+            } else {
+                0.0
+            };
             out.push_str(&format!(
-                            "  {:>4} reqs {:>10.0}ms avg {:>10} total {:>4} errs {}\n",
-                ds.requests, avg_time, format_size(ds.total_size), ds.errors, domain));
+                "  {:>4} reqs {:>10.0}ms avg {:>10} total {:>4} errs {}\n",
+                ds.requests,
+                avg_time,
+                format_size(ds.total_size),
+                ds.errors,
+                domain
+            ));
         }
         out.push_str("\n");
     }
@@ -664,10 +843,12 @@ pub fn format_text_report(stats: &HarStats, har: &HarFile) -> String {
         out.push_str(&format!("───────────────────\n"));
         for pl in &stats.page_load_times {
             out.push_str(&format!("  [{}] {}\n", pl.page_id, pl.title));
-            out.push_str(&format!("       Entries: {}, DOM Content: {:.0}ms, On Load: {:.0}ms\n",
+            out.push_str(&format!(
+                "       Entries: {}, DOM Content: {:.0}ms, On Load: {:.0}ms\n",
                 pl.entries,
                 pl.on_content_load.unwrap_or(0.0),
-                pl.on_load.unwrap_or(0.0)));
+                pl.on_load.unwrap_or(0.0)
+            ));
         }
         out.push_str("\n");
     }
@@ -712,9 +893,15 @@ pub fn format_markdown_report(stats: &HarStats, har: &HarFile) -> String {
     let mut out = String::new();
 
     out.push_str(&format!("# HAR Analysis Report\n\n"));
-    out.push_str(&format!("- **Creator**: {} v{}\n", har.log.creator.name, har.log.creator.version));
+    out.push_str(&format!(
+        "- **Creator**: {} v{}\n",
+        har.log.creator.name, har.log.creator.version
+    ));
     if let Some(ref browser) = har.log.browser {
-        out.push_str(&format!("- **Browser**: {} v{}\n", browser.name, browser.version));
+        out.push_str(&format!(
+            "- **Browser**: {} v{}\n",
+            browser.name, browser.version
+        ));
     }
     out.push_str(&format!("- **HAR Version**: {}\n", har.log.version));
     out.push_str("\n");
@@ -724,7 +911,10 @@ pub fn format_markdown_report(stats: &HarStats, har: &HarFile) -> String {
     out.push_str(&format!("|--------|-------|\n"));
     out.push_str(&format!("| Total Requests | {} |\n", stats.total_entries));
     out.push_str(&format!("| Total Pages | {} |\n", stats.total_pages));
-    out.push_str(&format!("| Total Transfer | {} |\n", format_size(stats.total_transfer_size)));
+    out.push_str(&format!(
+        "| Total Transfer | {} |\n",
+        format_size(stats.total_transfer_size)
+    ));
     out.push_str(&format!("| Total Time | {:.0} ms |\n", stats.total_time_ms));
     out.push_str("\n");
 
@@ -744,8 +934,15 @@ pub fn format_markdown_report(stats: &HarStats, har: &HarFile) -> String {
         out.push_str("| # | Status | Time | Size | Method | URL |\n");
         out.push_str("|---|--------|------|------|--------|-----|\n");
         for (i, entry) in stats.slowest_entries.iter().take(10).enumerate() {
-            out.push_str(&format!("| {} | {} | {:.0}ms | {} | {} | {} |\n",
-                i + 1, entry.status, entry.total_time_ms, format_size(entry.size), entry.method, entry.url));
+            out.push_str(&format!(
+                "| {} | {} | {:.0}ms | {} | {} | {} |\n",
+                i + 1,
+                entry.status,
+                entry.total_time_ms,
+                format_size(entry.size),
+                entry.method,
+                entry.url
+            ));
         }
         out.push_str("\n");
     }
@@ -759,7 +956,12 @@ pub fn suggest_filename(path: &str, suffix: &str) -> String {
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("har");
-    format!("{}-{}.{}", stem, suffix, if suffix == "json" { "json" } else { "md" })
+    format!(
+        "{}-{}.{}",
+        stem,
+        suffix,
+        if suffix == "json" { "json" } else { "md" }
+    )
 }
 
 // ============================================================
@@ -793,7 +995,8 @@ mod tests {
     use super::*;
 
     fn sample_har() -> HarFile {
-        serde_json::from_str(r#"{
+        serde_json::from_str(
+            r#"{
             "log": {
                 "version": "1.2",
                 "creator": { "name": "test", "version": "1.0" },
@@ -939,7 +1142,9 @@ mod tests {
                     }
                 ]
             }
-        }"#).unwrap()
+        }"#,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -958,19 +1163,19 @@ mod tests {
         assert_eq!(stats.total_entries, 4);
         assert_eq!(stats.total_pages, 1);
         assert_eq!(stats.total_transfer_size, 11580); // headersSize + bodySize for all 4 entries
-        // Wait: 200+500=700, 180+300=480, 150+10000=10150, 150+100=250. Total=700+480+10150+250=11580
-        // Hmm, let me recalculate
-        // Entry 1: 200+500=700
-        // Entry 2: 180+300=480
-        // Entry 3: 150+10000=10150
-        // Entry 4: 150+100=250
-        // Total: 700+480+10150+250 = 11580
-        // But wait, headers_size + body_size for each entry...
-        // Entry 1: headers_size=200, body_size=500 => 700
-        // Entry 2: headers_size=180, body_size=300 => 480
-        // Entry 3: headers_size=150, body_size=10000 => 10150
-        // Entry 4: headers_size=150, body_size=100 => 250
-        // Total: 11580
+                                                      // Wait: 200+500=700, 180+300=480, 150+10000=10150, 150+100=250. Total=700+480+10150+250=11580
+                                                      // Hmm, let me recalculate
+                                                      // Entry 1: 200+500=700
+                                                      // Entry 2: 180+300=480
+                                                      // Entry 3: 150+10000=10150
+                                                      // Entry 4: 150+100=250
+                                                      // Total: 700+480+10150+250 = 11580
+                                                      // But wait, headers_size + body_size for each entry...
+                                                      // Entry 1: headers_size=200, body_size=500 => 700
+                                                      // Entry 2: headers_size=180, body_size=300 => 480
+                                                      // Entry 3: headers_size=150, body_size=10000 => 10150
+                                                      // Entry 4: headers_size=150, body_size=100 => 250
+                                                      // Total: 11580
         assert_eq!(stats.total_transfer_size, 11580);
 
         // Status codes
@@ -979,7 +1184,10 @@ mod tests {
         assert_eq!(stats.status_code_distribution.get(&500), Some(&1));
 
         // Content types
-        assert_eq!(stats.content_type_distribution.get("application/json"), Some(&3));
+        assert_eq!(
+            stats.content_type_distribution.get("application/json"),
+            Some(&3)
+        );
         assert_eq!(stats.content_type_distribution.get("text/css"), Some(&1));
 
         // Methods
@@ -991,7 +1199,10 @@ mod tests {
         assert_eq!(stats.cache_misses, 3);
 
         // Slowest
-        assert_eq!(stats.slowest_entries[0].url, "https://api.example.com/error");
+        assert_eq!(
+            stats.slowest_entries[0].url,
+            "https://api.example.com/error"
+        );
         assert_eq!(stats.slowest_entries[0].total_time_ms, 516.0);
     }
 
@@ -1004,8 +1215,18 @@ mod tests {
         assert!(stats.per_domain_stats.contains_key("cdn.example.com"));
         assert!(stats.per_domain_stats.contains_key("api.example.com"));
 
-        assert_eq!(stats.per_domain_stats.get("example.com").unwrap().requests, 2);
-        assert_eq!(stats.per_domain_stats.get("api.example.com").unwrap().errors, 1);
+        assert_eq!(
+            stats.per_domain_stats.get("example.com").unwrap().requests,
+            2
+        );
+        assert_eq!(
+            stats
+                .per_domain_stats
+                .get("api.example.com")
+                .unwrap()
+                .errors,
+            1
+        );
     }
 
     #[test]
@@ -1102,8 +1323,14 @@ mod tests {
 
     #[test]
     fn test_extract_domain() {
-        assert_eq!(extract_domain("https://example.com/path"), Some("example.com".to_string()));
-        assert_eq!(extract_domain("http://cdn.example.com:8080/"), Some("cdn.example.com:8080".to_string()));
+        assert_eq!(
+            extract_domain("https://example.com/path"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            extract_domain("http://cdn.example.com:8080/"),
+            Some("cdn.example.com:8080".to_string())
+        );
         assert_eq!(extract_domain("not-a-url"), None);
     }
 

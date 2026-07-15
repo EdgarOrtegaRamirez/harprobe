@@ -4,7 +4,11 @@ use std::fs;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "harprobe", version, about = "HTTP Archive (HAR) file analysis CLI")]
+#[command(
+    name = "harprobe",
+    version,
+    about = "HTTP Archive (HAR) file analysis CLI"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -92,7 +96,11 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Stats { file, format, output } => {
+        Commands::Stats {
+            file,
+            format,
+            output,
+        } => {
             let content = match fs::read_to_string(&file) {
                 Ok(c) => c,
                 Err(e) => {
@@ -144,16 +152,40 @@ fn main() {
             };
             let stats = analyze(&har);
 
-            println!("🐌 {} Slowest Requests\n", stats.slowest_entries.len().min(count));
+            println!(
+                "🐌 {} Slowest Requests\n",
+                stats.slowest_entries.len().min(count)
+            );
             for (i, entry) in stats.slowest_entries.iter().take(count).enumerate() {
-                let status_color = if entry.status >= 400 { "✗" } else if entry.status >= 300 { "→" } else { "✓" };
-                println!("{:>2}. {} {:>3} {:>8.0}ms {:>8} {} {}",
-                    i + 1, status_color, entry.status, entry.total_time_ms,
-                    format_size(entry.size), entry.method, entry.url);
+                let status_color = if entry.status >= 400 {
+                    "✗"
+                } else if entry.status >= 300 {
+                    "→"
+                } else {
+                    "✓"
+                };
+                println!(
+                    "{:>2}. {} {:>3} {:>8.0}ms {:>8} {} {}",
+                    i + 1,
+                    status_color,
+                    entry.status,
+                    entry.total_time_ms,
+                    format_size(entry.size),
+                    entry.method,
+                    entry.url
+                );
             }
         }
 
-        Commands::Filter { file, status_min, status_max, url, mime, min_time, max_time } => {
+        Commands::Filter {
+            file,
+            status_min,
+            status_max,
+            url,
+            mime,
+            min_time,
+            max_time,
+        } => {
             let content = match fs::read_to_string(&file) {
                 Ok(c) => c,
                 Err(e) => {
@@ -169,18 +201,35 @@ fn main() {
                 }
             };
 
-            let filtered = filter_entries(&har.log.entries, status_min, status_max,
-                url.as_deref(), mime.as_deref(), min_time, max_time);
+            let filtered = filter_entries(
+                &har.log.entries,
+                status_min,
+                status_max,
+                url.as_deref(),
+                mime.as_deref(),
+                min_time,
+                max_time,
+            );
 
-            println!("Filtered {} of {} entries\n", filtered.len(), har.log.entries.len());
+            println!(
+                "Filtered {} of {} entries\n",
+                filtered.len(),
+                har.log.entries.len()
+            );
             for entry in filtered {
                 let entry_time = entry.timings.wait + entry.timings.receive;
-                println!("{:>6} {:>3} {:>6.0}ms {}",
-                    entry.request.method, entry.response.status, entry_time, entry.request.url);
+                println!(
+                    "{:>6} {:>3} {:>6.0}ms {}",
+                    entry.request.method, entry.response.status, entry_time, entry.request.url
+                );
             }
         }
 
-        Commands::Diff { before, after, format } => {
+        Commands::Diff {
+            before,
+            after,
+            format,
+        } => {
             let before_content = match fs::read_to_string(&before) {
                 Ok(c) => c,
                 Err(e) => {
@@ -198,11 +247,17 @@ fn main() {
 
             let before_har = match parse_har(&before_content) {
                 Ok(h) => h,
-                Err(e) => { eprintln!("Error parsing '{}': {}", before.display(), e); std::process::exit(1); }
+                Err(e) => {
+                    eprintln!("Error parsing '{}': {}", before.display(), e);
+                    std::process::exit(1);
+                }
             };
             let after_har = match parse_har(&after_content) {
                 Ok(h) => h,
-                Err(e) => { eprintln!("Error parsing '{}': {}", after.display(), e); std::process::exit(1); }
+                Err(e) => {
+                    eprintln!("Error parsing '{}': {}", after.display(), e);
+                    std::process::exit(1);
+                }
             };
 
             let diff = diff_har(&before_har, &after_har);
@@ -222,30 +277,51 @@ fn main() {
                     println!("  Removed:   {}", diff.removed_entries.len());
                     println!("  Unchanged: {}\n", diff.same_entries);
 
-                    let direction = if diff.total_time_change_ms >= 0.0 { "+" } else { "" };
-                    println!("  Total time change: {}{:.0}ms", direction, diff.total_time_change_ms);
+                    let direction = if diff.total_time_change_ms >= 0.0 {
+                        "+"
+                    } else {
+                        ""
+                    };
+                    println!(
+                        "  Total time change: {}{:.0}ms",
+                        direction, diff.total_time_change_ms
+                    );
                     let size_direction = if diff.total_size_change >= 0 { "+" } else { "" };
-                    println!("  Total size change: {}{}", size_direction, format_size(diff.total_size_change));
+                    println!(
+                        "  Total size change: {}{}",
+                        size_direction,
+                        format_size(diff.total_size_change)
+                    );
 
                     if !diff.added_entries.is_empty() {
                         println!("\n  ✚ Added Entries:");
                         for entry in &diff.added_entries {
-                            println!("    {:>6} {:>3} {:>8.0}ms {}",
-                                entry.method, entry.status, entry.total_time_ms, entry.url);
+                            println!(
+                                "    {:>6} {:>3} {:>8.0}ms {}",
+                                entry.method, entry.status, entry.total_time_ms, entry.url
+                            );
                         }
                     }
                     if !diff.removed_entries.is_empty() {
                         println!("\n  ✖ Removed Entries:");
                         for entry in &diff.removed_entries {
-                            println!("    {:>6} {:>3} {:>8.0}ms {}",
-                                entry.method, entry.status, entry.total_time_ms, entry.url);
+                            println!(
+                                "    {:>6} {:>3} {:>8.0}ms {}",
+                                entry.method, entry.status, entry.total_time_ms, entry.url
+                            );
                         }
                     }
                 }
             }
         }
 
-        Commands::Ci { file, max_total_time, max_requests, max_errors, max_total_size } => {
+        Commands::Ci {
+            file,
+            max_total_time,
+            max_requests,
+            max_errors,
+            max_total_size,
+        } => {
             let content = match fs::read_to_string(&file) {
                 Ok(c) => c,
                 Err(e) => {
@@ -261,7 +337,13 @@ fn main() {
                 }
             };
             let stats = analyze(&har);
-            let violations = check_thresholds(&stats, max_total_time, max_requests, max_errors, max_total_size);
+            let violations = check_thresholds(
+                &stats,
+                max_total_time,
+                max_requests,
+                max_errors,
+                max_total_size,
+            );
 
             if violations.is_empty() {
                 println!("✅ All thresholds passed");
@@ -291,7 +373,10 @@ fn main() {
             };
 
             println!("📄 HAR File Information\n");
-            println!("  Creator:     {} v{}", har.log.creator.name, har.log.creator.version);
+            println!(
+                "  Creator:     {} v{}",
+                har.log.creator.name, har.log.creator.version
+            );
             if let Some(ref browser) = har.log.browser {
                 println!("  Browser:     {} v{}", browser.name, browser.version);
             }
@@ -302,7 +387,9 @@ fn main() {
             if !har.log.pages.is_empty() {
                 println!("\n  Pages:");
                 for page in &har.log.pages {
-                    let on_load = page.page_timings.as_ref()
+                    let on_load = page
+                        .page_timings
+                        .as_ref()
                         .and_then(|t| t.on_load)
                         .map(|t| format!("{:.0}ms", t))
                         .unwrap_or_else(|| "N/A".to_string());
